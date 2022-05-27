@@ -35,7 +35,7 @@ knitr::opts_chunk$set(echo = TRUE)
 library(tigris)
 ```
  
-```{r load data, results='hide', fig.keep='all', message = FALSE}
+```{r load data, fig.keep='all', message=FALSE, results='hide'}
 # Load census tract simple feature data
 durham_tracts = tigris::tracts(county = 063, state = "NC", year = 2010) 
 cookcounty_ct = tigris::tracts(county = 031, state = "IL", year = 2010) %>% 
@@ -59,32 +59,32 @@ orleans_ct$fips = as.numeric(orleans_ct$GEOID10)
 orleans_bg$fips = as.numeric(orleans_bg$GEOID10) 
 
 # Load Durham indices data
-svi_durham <- read_excel("/Users/annazolotor/Desktop/svi.xlsx")
-adi_durham <- read_excel("/Users/annazolotor/Desktop/adi.xlsx")
-ccvi_durham <- read_excel("/Users/annazolotor/Desktop/ccvi (1).xlsx")
-coi_durham  <- read_excel("/Users/annazolotor/Desktop/COI_durham.xlsx")
+svi_durham <- read_csv("data/svi_durham.csv")
+adi_durham <- read_csv("data/adi_durham.csv")
+ccvi_durham <- read_csv("data/ccvi_durham.csv")
+coi_durham  <- read_csv("data/coi_durham.csv")
 
 # Load Chicago indices data
-svi_chicago  <- read_excel("/Users/annazolotor/Desktop/Chicago_v2.xlsx", sheet="Chicago SVI")
-adi_chicago  <- read_excel("/Users/annazolotor/Desktop/Chicago_v2.xlsx", sheet="Chicago ADI")
-ccvi_chicago <- read_excel("/Users/annazolotor/Desktop/Chicago_v2.xlsx", sheet="Chicago CCVI")
-coi_chicago  <- read_excel("/Users/annazolotor/Desktop/COI_Chicago.xlsx")
+svi_chicago  <- read_csv("data/svi_chicago.csv")
+adi_chicago  <- read_csv("data/adi_chicago.csv")
+ccvi_chicago <- read_csv("data/ccvi_chicago.csv")
+coi_chicago  <- read_csv("data/coi_chicago.csv")
 
 # Load NOLA indices data
-svi_nola  <- read_excel("/Users/annazolotor/Desktop/nola_v2.xlsx", sheet="New Orleans SVI")
-adi_nola  <- read_excel("/Users/annazolotor/Desktop/nola_v2.xlsx", sheet ="New Orleans ADI" )
-ccvi_nola <- read_excel("/Users/annazolotor/Desktop/nola_v2.xlsx", sheet="New Orleans CCVI")
-coi_nola <- read_excel("/Users/annazolotor/Desktop/COI_NOLA.xlsx")
+svi_nola  <- read_csv("data/svi_nola.csv")
+adi_nola  <- read_csv("data/adi_nola.csv")
+ccvi_nola <- read_csv("data/ccvi_nola.csv")
+coi_nola <- read_csv("data/coi_nola.csv")
 
 # Load block group population information
-durham_19ct_totalpop <- read_csv("/Users/annazolotor/Desktop/nhgis0034_ds244_20195_tract.csv") %>%
+durham_19ct_totalpop <- read_csv("data/durham_19ct_totalpop.csv") %>%
   filter(STATEA == 37 & COUNTYA==063)
-us_tracts_2019 <- read_csv("/Users/annazolotor/Desktop/nhgis0034_ds244_20195_tract.csv")
+us_tracts_2019 <- read_csv("data/us_tracts_2019.csv")
 
 # Load datasets with all indices
-all_durham <- read_csv("/Users/annazolotor/Desktop/all_durham.csv")
-all_cookcounty <- read_csv("/Users/annazolotor/Desktop/all_cookcounty.csv", col_types = cols(fips = col_character()))
-all_nola <- read_csv("/Users/annazolotor/Desktop/all_orleans.csv", col_types = cols(fips = col_character()))
+all_durham <- read_csv("data/all_durham.csv")
+all_cookcounty <- read_csv("data/all_cookcounty.csv", col_types = cols(fips = col_character()))
+all_nola <- read_csv("data/all_nola.csv", col_types = cols(fips = col_character()))
 ```
 
 # Map Durham SVI
