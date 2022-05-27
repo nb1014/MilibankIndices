@@ -1,0 +1,729 @@
+---
+title: "Millbank Indices Code"
+author: "Nrupen Bhavsar"
+date: "5/27/2022"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r load packages, message = FALSE, warning = FALSE}
+  library(ggsn)
+  library(dplyr)
+  library(tidyr, tidyverse)
+  library(tmap)
+  library(ggplot2)
+  library(rnaturalearth)
+  library(sf)
+  library(maps)
+  library(maptools)
+  library(rgdal)
+  library(RColorBrewer)
+  library(readxl)
+  library(ggsn)
+  library(tigris)
+  library(ggspatial)
+  library(spatstat)
+  library(GGally)
+  library(spdep)
+  library(spdep)
+  library(tmap)
+  library(readr)
+  library(foreach)
+library(tigris)
+```
+ 
+```{r load data, results='hide', fig.keep='all', message = FALSE}
+# Load census tract simple feature data
+durham_tracts = tigris::tracts(county = 063, state = "NC", year = 2010) 
+cookcounty_ct = tigris::tracts(county = 031, state = "IL", year = 2010) %>% 
+  filter(GEOID10!="17031990000")
+orleans_ct = tigris::tracts(county = 071, state = "LA", year = 2010)  %>% 
+  filter(GEOID10!="22071980000" & GEOID10!="22071990000")
+
+#Load block group simple feature data
+durham_bg = tigris::block_groups(county=063, state="NC", year = 2010)
+cookcounty_bg = tigris::block_groups(county=031, state="IL", year = 2010) %>% 
+  filter(GEOID10!="170319900000")
+orleans_bg = tigris::block_groups(county = 071, state = "LA", year = 2010) %>% 
+          filter(GEOID10!="22071980001" & GEOID10!="220719801001" & GEOID10!="220719900000")
+
+# Convert GEOID variable from character to numeric
+durham_tracts$fips = as.numeric(durham_tracts$GEOID10)
+durham_bg$fips = as.numeric(durham_bg$GEOID10)
+cookcounty_bg$fips = as.numeric(cookcounty_bg$GEOID10)
+cookcounty_ct$fips = as.numeric(cookcounty_ct$GEOID10) 
+orleans_ct$fips = as.numeric(orleans_ct$GEOID10)
+orleans_bg$fips = as.numeric(orleans_bg$GEOID10) 
+
+# Load Durham indices data
+svi_durham <- read_excel("/Users/annazolotor/Desktop/svi.xlsx")
+adi_durham <- read_excel("/Users/annazolotor/Desktop/adi.xlsx")
+ccvi_durham <- read_excel("/Users/annazolotor/Desktop/ccvi (1).xlsx")
+coi_durham  <- read_excel("/Users/annazolotor/Desktop/COI_durham.xlsx")
+
+# Load Chicago indices data
+svi_chicago  <- read_excel("/Users/annazolotor/Desktop/Chicago_v2.xlsx", sheet="Chicago SVI")
+adi_chicago  <- read_excel("/Users/annazolotor/Desktop/Chicago_v2.xlsx", sheet="Chicago ADI")
+ccvi_chicago <- read_excel("/Users/annazolotor/Desktop/Chicago_v2.xlsx", sheet="Chicago CCVI")
+coi_chicago  <- read_excel("/Users/annazolotor/Desktop/COI_Chicago.xlsx")
+
+# Load NOLA indices data
+svi_nola  <- read_excel("/Users/annazolotor/Desktop/nola_v2.xlsx", sheet="New Orleans SVI")
+adi_nola  <- read_excel("/Users/annazolotor/Desktop/nola_v2.xlsx", sheet ="New Orleans ADI" )
+ccvi_nola <- read_excel("/Users/annazolotor/Desktop/nola_v2.xlsx", sheet="New Orleans CCVI")
+coi_nola <- read_excel("/Users/annazolotor/Desktop/COI_NOLA.xlsx")
+
+# Load block group population information
+durham_19ct_totalpop <- read_csv("/Users/annazolotor/Desktop/nhgis0034_ds244_20195_tract.csv") %>%
+  filter(STATEA == 37 & COUNTYA==063)
+us_tracts_2019 <- read_csv("/Users/annazolotor/Desktop/nhgis0034_ds244_20195_tract.csv")
+
+# Load datasets with all indices
+all_durham <- read_csv("/Users/annazolotor/Desktop/all_durham.csv")
+all_cookcounty <- read_csv("/Users/annazolotor/Desktop/all_cookcounty.csv", col_types = cols(fips = col_character()))
+all_nola <- read_csv("/Users/annazolotor/Desktop/all_orleans.csv", col_types = cols(fips = col_character()))
+```
+
+# Map Durham SVI
+
+```{r map durham,message = FALSE, warning = FALSE}
+# Merge census tract shape file with Durham  
+mapdata_svi_d <- merge(durham_tracts, svi_durham, by.x="GEOID10", by.y="fips", all.x=TRUE)
+
+# Create decile of data
+mapdata_svi_d$svi_dec = ntile(mapdata_svi_d$sviscore, 10)
+
+# Map the decile data
+map_svi <- ggplot(data = mapdata_svi_d) + geom_sf(aes(fill = svi_dec), size=0.005, color="white") +
+  scale_fill_distiller(palette = "RdYlBu", name="SVI Decile")
+
+# Set map theme to be used for all maps
+map_theme = theme(panel.background = element_blank(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(), axis.line = element_blank(),
+                  axis.ticks = element_blank(), 
+                  axis.title.x = element_blank(), axis.title.y = element_blank(), 
+                  axis.text.x = element_blank(), axis.text.y = element_blank())
+
+# Create map
+map_svi + map_theme 
+```
+
+# Map Durham CCVI 
+
+```{r ccvi map, message = FALSE, warning = FALSE}
+# Merge census shape file with CCVI
+ccvi_durham <- ccvi_durham %>%
+  mutate(fips = as.character(fips)) %>%
+  rename(GEOID10 = fips)
+mapdata_ccvi_d <- full_join(durham_tracts, ccvi_durham, by ="GEOID10")
+
+# Create decile of data
+mapdata_ccvi_d$ccvi_dec = ntile(mapdata_ccvi_d$ccvi, 10)
+
+# Map the data
+map_ccvi_d <- ggplot(data = mapdata_ccvi_d) + geom_sf(aes(fill = ccvi_dec), size=0.005, color="white") +
+scale_fill_distiller(palette = "RdYlBu", name="CCVI Decile")    
+map_ccvi_d + map_theme 
+```
+
+# Map Durham ADI
+
+```{r adi map, message = FALSE, warning = FALSE}
+# Merge block group shape file with ADI
+durham_bg <- durham_bg %>%
+  mutate(GEOID10 = as.numeric(GEOID10)) %>%
+  rename(FIPS = GEOID10)
+mapdata_adi_d = left_join(durham_bg, adi_durham, by="FIPS")
+
+# Map the data
+map_adi_d <- ggplot(data=mapdata_adi_d) + geom_sf(aes(fill = ADI_STATERNK), size=0.005, color="white") +
+          scale_fill_distiller(palette = "RdYlBu", name="ADI State Rank")   
+
+map_adi_d + map_theme + annotation_scale(location = "br", width_hint = 0.4) +
+          annotation_north_arrow(location = "br", which_north = "true", 
+                                 pad_x = unit(0.0, "in"), pad_y = unit(0.2, "in"),
+                                 style = north_arrow_fancy_orienteering)
+```
+
+# Map Durham COI
+
+```{r coi map, message = FALSE, warning = FALSE}
+# Merge CENSUS TRACT shape file with COI
+    mapdata_coi_d = left_join(durham_tracts, coi_durham, by="fips") %>% 
+          mutate(risk_cat = recode(c5_COI_stt, 
+                                   "Very High" = 5,
+                                   "High" = 4,
+                                   "Moderate" = 3,
+                                   "Low" = 2,
+                                   "Very Low" = 1
+          ))
+
+# Map the data
+map_coi_d = ggplot(data = mapdata_coi_d) + geom_sf(aes(fill = risk_cat), size=0.005, color="white") +
+          scale_fill_distiller(palette = "RdYlBu", trans="reverse", limits = c(5,1))
+        
+map_theme = theme(panel.background = element_blank(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(), axis.line =
+                  element_blank(), axis.ticks = element_blank(), 
+                          axis.title.x = element_blank(), axis.title.y = element_blank(), 
+                          axis.text.x = element_blank(), axis.text.y = element_blank())
+        
+map_coi_d + map_theme + guides(fill=guide_legend(title="COI Category", reverse=TRUE)) 
+```
+ 
+# Map Chicago SVI
+
+```{r map chicago svi, message = FALSE, warning = FALSE}
+# Merge census tract shape file with SVI
+cookcounty_ct$FIPS = as.numeric(cookcounty_ct$GEOID10)
+mapdata_svi_c = merge(cookcounty_ct, svi_chicago, by = "FIPS")
+
+# Create decile of data
+mapdata_svi_c$svi_dec = ntile(mapdata_svi_c$RPL_THEMES, 10)
+
+# Map the decile data
+map_svi_c = ggplot(data = mapdata_svi_c) + geom_sf(aes(fill = svi_dec), size=0.005, color="light grey") +
+          scale_fill_distiller(palette = "RdYlBu", name="SVI Decile")
+
+map_svi_c + map_theme
+```
+# Map Chicago CCVI
+
+```{r map chicago ccvi, message = FALSE, warning = FALSE}
+        
+# Merge census tract shape file with CCVI
+ccvi_chicago$ccvi = as.numeric(ccvi_chicago$ccvi)
+ccvi_chicago$fips = as.numeric(ccvi_chicago$FIPS)
+mapdata_ccvi_c = left_join(cookcounty_ct, ccvi_chicago, by="fips")
+
+ # Create decile of data
+mapdata_ccvi_c$ccvi_dec = ntile(mapdata_ccvi_c$ccvi, 10)
+
+# Map the data
+map_ccok_ccvi = ggplot(data = mapdata_ccvi_c) + geom_sf(aes(fill = ccvi_dec), size=0.005, color="light grey") +
+scale_fill_distiller(palette = "RdYlBu", name="CCVI Decile")    
+
+map_ccok_ccvi + map_theme 
+```
+
+# Map Chicago ADI
+
+```{r map cook county, message = FALSE, warning = FALSE}
+# Merge block group shape file with ADI
+adi_chicago$fips = as.numeric(adi_chicago$FIPS)
+adi_chicago$adi_strnk = as.numeric(adi_chicago$ADI_STATERNK)
+mapdata_adi_c = left_join(cookcounty_bg, adi_chicago, by="fips")
+
+# Map the data
+map_adi_c = ggplot(data=mapdata_adi_c ) + geom_sf(aes(fill = adi_strnk), size=0.0005, color="light grey") +
+scale_fill_distiller(palette = "RdYlBu", name="ADI State Rank") 
+map_adi_c + map_theme +  annotation_scale(location = "bl", width_hint = 0.4) +
+          annotation_north_arrow(location = "bl", which_north = "true", 
+                                 pad_x = unit(0.0, "in"), pad_y = unit(0.2, "in"),
+                                 style = north_arrow_fancy_orienteering)
+        
+```
+# Map Chicago COI
+
+```{r map chicago COI, message = FALSE, warning = FALSE}
+# Merge census tract shape file with COI
+mapdata_coi_c = left_join(cookcounty_ct, coi_chicago, by="fips") %>% 
+  mutate(risk_cat_c = recode(c5_COI_stt, 
+                             "Very High" = 5,
+                              "High" = 4,
+                              "Moderate" = 3,
+                              "Low" = 2,
+                              "Very Low" = 1))
+
+# Map the data
+map_coi_c <- ggplot(data = mapdata_coi_c) + geom_sf(aes(fill = risk_cat_c), size=0.005, color="light grey") +
+  scale_fill_distiller(palette = "RdYlBu", trans = "reverse", limits = c(5,1))
+        
+map_coi_c + map_theme + guides(fill=guide_legend(title="COI Category", reverse=TRUE)) 
+        
+```
+# Map New Orleans SVI
+
+```{r map nola svi, message = FALSE, warning = FALSE}
+# Merge census tract shape file with SVI
+svi_nola$fips = as.numeric(svi_nola$FIPS)
+mapdata_svi_n = left_join(orleans_ct, svi_nola, by="fips")
+
+# Create decile of data
+mapdata_svi_n$svi_dec = ntile(mapdata_svi_n$RPL_THEMES, 10)
+
+# Map the data
+map_svi_n = ggplot(data = mapdata_svi_n) + geom_sf(aes(fill = svi_dec), size=0.005, color="white") +
+  scale_fill_distiller(palette = "RdYlBu", name="SVI Decile")
+map_svi_n + map_theme 
+```
+# Map New Orleans CCVI 
+
+```{r map nola ccvi, message = FALSE, warning = FALSE}
+# Merge census tract shape file with CCVI
+ccvi_nola$fips = as.numeric(ccvi_nola$FIPS)
+mapdata_ccvi_n = left_join(orleans_ct, ccvi_nola, by="fips")
+
+# Create decile of data
+mapdata_ccvi_n$ccvi_dec = ntile(mapdata_ccvi_n$ccvi, 10)
+
+# Map the decile data
+map_ccvi_orleans = ggplot(data = mapdata_ccvi_n) + geom_sf(aes(fill = ccvi_dec), size=0.005, color="white") +
+  scale_fill_distiller(palette = "RdYlBu", name="CCVI Decile")
+map_ccvi_orleans + map_theme 
+```
+
+#Map New Orleans ADI
+
+```{r map nola adi, message = FALSE, warning = FALSE}
+# Merge BLOCK GROUP shape file with ADI
+adi_nola$fips = as.numeric(adi_nola$FIPS)
+adi_nola$adi_strnk = as.numeric(adi_nola$ADI_STATERNK)
+mapdata_adi_n = left_join(orleans_bg, adi_nola, by="fips")
+
+# Map the data
+map_adi_n = ggplot(data=mapdata_adi_n) + geom_sf(aes(fill = adi_strnk), size=0.005, color="white") +
+  scale_fill_distiller(palette = "RdYlBu", name="ADI State Rank")    
+```
+
+# Map New Orleans COI
+
+```{r map nola coi, message = FALSE, warning = FALSE}
+# Merge census tract shape file with COI
+mapdata_coi_n = left_join(orleans_ct, coi_nola, by="fips") %>% 
+          mutate(risk_cat_n = recode(c5_COI_stt, 
+                                     "Very High" = 5,
+                                     "High" = 4,
+                                     "Moderate" = 3,
+                                     "Low" = 2,
+                                     "Very Low" = 1 ))
+        
+# Map the data
+map_coi_nola <- ggplot(data = mapdata_coi_n) + geom_sf(aes(fill = risk_cat_n), size=0.005, color="white") +
+          scale_fill_distiller(palette = "RdYlBu", trans="reverse", limits = c(5,1))
+map_coi_nola + map_theme + guides(fill=guide_legend(title="COI Category", reverse=TRUE)) 
+```
+
+# Durham Correlation Plot
+
+```{r roll up ADI durham, message = FALSE, warning = FALSE}
+# Concatenate State, County, and Census Tract into single variable
+durham_19ct_totalpop <-
+  tidyr::separate(
+    data = durham_19ct_totalpop,
+    col = GEOID,
+    sep = c(7),
+    into = c("ante", "FIPS_CT"),
+    remove = FALSE
+  ) %>%
+  rename(total = ALUBE001) %>% #rename total population variable
+  mutate(FIPS_CT = substring(FIPS_CT, first = 1, last = 11)) #Create census tract GEOIDs by truncating the block group GEOIDs at 11 characters
+
+#Subset if ADI is NA
+adi_durham_na <-subset(adi_durham, ADI_STATERNK != "")
+
+#Merge truncated ADI dataset with census tract dataset that has Total Population
+adi_totalpop_durham = merge(durham_19ct_totalpop, adi_durham, by.x ="FIPS_CT", by.y = "FIPS")
+adi_totalpop_durham_na <-subset(adi_totalpop_durham, ADI_STATERNK != "")
+
+#Loop over each census tract GEOID and calculate weighted median, mean and unweighted median, mean
+adi_totalpop_durham_stats <- foreach(x = unique(adi_totalpop_durham$FIPS_CT), .combine = "rbind", .packages = "spatstat") %do% {
+  
+  #Create a temporary subset with block groups from the xth census tract
+  temp <- adi_totalpop_durham[adi_totalpop_durham$FIPS_CT == x , ]
+  
+  #If there is at least 1 block group in the xth census tract . .
+  if(nrow(temp) > 0) {
+    
+    #Calculate the weight for each block group as the proportion of the total pop in the xth census tract
+    temp$weights <- temp$Total / sum(temp$Total)
+    
+    #Create a dataframe with the xth census tract GEOID and each of the desired metrics
+    summary.out <- data.frame(
+      FIPS_CT = x,
+      adi.median = weighted.median(
+        temp$ADI_STATERNK, temp$weights),
+      adi.mean = weighted.mean(x = temp$ADI_STATERNK, w = temp$weights),
+      adi.median.uw = median(temp$ADI_STATERNK),
+      adi.mean.uw = mean(temp$ADI_STATERNK)
+    )
+    
+    #Return the median dataframe
+    return(summary.out)
+  }
+}
+```
+
+
+```{r correlation plot, message = FALSE, warning = FALSE}
+# Convert COI to numeric value
+all_durham$coi_num = dplyr::recode(all_durham$c5_COI_stt, 
+                            "Very High" = 5,
+                            "High" = 4,
+                            "Moderate" = 3,
+                            "Low" = 2,
+                            "Very Low" = 1)
+
+# Keep weighted mean ADI (adi.mean), COI (c5_COI_stt), ccvi (ccvi), SVI (sviscore)
+durham_justindices <- all_durham %>%
+ select(c("adi.mean", "coi_num", "ccvi", "sviscore")) %>%
+  filter(adi.mean != "")
+
+# Create plot
+ggcorr(durham_justindices, method = c("pairwise", "spearman"),
+       nbreaks = NULL, digits = 2, low = "#3B9AB2",
+       mid = "#EEEEEE", high = "#F21A00",
+       geom = "tile", label = TRUE,
+       label_alpha = FALSE)
+```
+# Chicago Correlation Plot 
+
+```{r roll up adi chicago, message = FALSE, warning = FALSE}
+all_cookcounty$coi_num = recode(all_cookcounty$c5_COI_stt, 
+                            "Very High" = 5,
+                            "High" = 4,
+                            "Moderate" = 3,
+                            "Low" = 2,
+                            "Very Low" = 1)
+
+cookcounty_justindices <- all_cookcounty[ ,c("adi.mean2", "coi_num", "ccvi", "sviscore")]
+cookcounty_justindices2 <-subset(cookcounty_justindices, adi.mean2 != "")
+
+write.csv(all_cookcounty, file="all_cookcounty.csv")
+
+# Create plot
+ggcorr(cookcounty_justindices2, method = c("pairwise", "spearman"),
+       nbreaks = NULL, digits = 2, low = "#3B9AB2",
+       mid = "#EEEEEE", high = "#F21A00",
+       geom = "tile", label = TRUE,
+       label_alpha = FALSE)
+```
+
+# New Orleans Correlation Plot
+
+```{r}
+all_nola$coi_num = recode(all_nola$c5_COI_stt, 
+                             "Very High" = 5,
+                             "High" = 4,
+                             "Moderate" = 3,
+                             "Low" = 2,
+                             "Very Low" = 1)
+# Keep weighted mean ADI (adi.mean), COI (c5_COI_stt), ccvi (ccvi), SVI (sviscore)
+nola_justindices <- all_nola[ ,c("adi.mean3", "coi_num", "ccvi", "sviscore")]
+nola_justindices2 <-subset(nola_justindices, adi.mean3 != "" & ccvi!="" & coi_num!="" & sviscore!="")
+
+# Create plot
+ggcorr(nola_justindices2, method = c("pairwise", "spearman"),
+       nbreaks = NULL, digits = 2, low = "#3B9AB2",
+       mid = "#EEEEEE", high = "#F21A00",
+       geom = "tile", label = TRUE,
+       label_alpha = FALSE)
+
+
+```
+# Durham Moran's I
+
+```{r Durham Moran, message = FALSE, warning = FALSE}
+all_durham <- all_durham %>%
+  drop_na("adi.mean") %>%
+  drop_na("coi_num") %>%
+  drop_na("ccvi") %>%
+  drop_na("sviscore") 
+
+# Merge index data with census tract data
+all_durham$fips <- as.numeric(all_durham$fips)
+data_merged_durham <- inner_join(durham_tracts, all_durham, by = "fips")
+
+# Identify neighboring polygons
+nb = poly2nb(data_merged_durham, queen=TRUE)
+
+# Assign weights to neighbors
+lw_d = nb2listw(nb, style="W", zero.policy=TRUE)
+
+# Durham ADI
+moran(data_merged_durham$adi.mean, lw_d, length(nb), Szero(lw_d), zero.policy=TRUE, NAOK=TRUE)
+moran.test(data_merged_durham$adi.mean, lw_d, na.action=na.omit, zero.policy=TRUE)
+
+# Durham COI
+moran(data_merged_durham$coi_num, lw_d, length(nb), Szero(lw_d), zero.policy=TRUE, NAOK=TRUE)
+moran.test(data_merged_durham$coi_num, lw_d, na.action=na.omit, zero.policy=TRUE)
+
+# Durham CCVI
+moran(data_merged_durham$ccvi, lw_d, length(nb), Szero(lw_d), zero.policy=TRUE, NAOK=TRUE)
+moran.test(data_merged_durham$ccvi, lw_d, na.action=na.omit, zero.policy=TRUE)
+
+# Durham SVI
+moran(data_merged_durham$sviscore, lw_d, length(nb), Szero(lw_d), zero.policy=TRUE, NAOK=TRUE)
+moran.test(data_merged_durham$sviscore, lw_d, na.action=na.omit, zero.policy=TRUE)
+```
+
+# Chicago Moran's I
+
+```{r chicago Moran, message = FALSE, warning = FALSE}
+all_cookcounty <- all_cookcounty %>%
+  drop_na("adi.mean2") %>% select(-"fips.y", -"FIPS.y") %>%
+  drop_na("coi_num") %>%
+  drop_na("ccvi") %>%
+  drop_na("sviscore") 
+
+# Merge index data with census tract data
+cookcounty_ct$fips_ch = as.character(cookcounty_ct$GEOID)
+all_cookcounty$fips_ch = as.character(all_cookcounty$fips)
+data_merged_chi <- inner_join(cookcounty_ct, all_cookcounty , by="fips_ch", all.y=TRUE) %>% drop_na("adi.mean2")  
+
+## Identify neighboring polygons
+nb_c = poly2nb(data_merged_chi, queen=TRUE)
+
+## Assign weights to neighbors
+lw_c = nb2listw(nb_c, style="W", zero.policy=TRUE)
+
+# Chicago ADI
+moran(data_merged_chi$adi.mean2, lw_c, length(nb_c), Szero(lw_c), zero.policy=TRUE, NAOK=TRUE)
+moran.test(data_merged_chi$adi.mean2, lw_c, na.action=na.omit, zero.policy=TRUE)
+# Chicago COI
+moran(data_merged_chi$coi_num, lw_c, length(nb_c), Szero(lw_c), zero.policy=TRUE, NAOK=TRUE)
+moran.test(data_merged_chi$coi_num, lw_c, na.action=na.omit, zero.policy=TRUE)
+# Chicago CCVI
+moran(data_merged_chi$ccvi, lw_c, length(nb_c), Szero(lw_c), zero.policy=TRUE, NAOK=TRUE)
+moran.test(data_merged_chi$ccvi, lw_c, na.action=na.omit, zero.policy=TRUE)
+# Chicago SVI
+moran(data_merged_chi$sviscore, lw_c, length(nb_c), Szero(lw_c), zero.policy=TRUE, NAOK=TRUE)
+moran.test(data_merged_chi$sviscore, lw_c, na.action=na.omit, zero.policy=TRUE)
+```
+
+# New Orleans Moran's I
+
+```{r nola Moran, message = FALSE, warning = FALSE}
+all_nola <- all_nola %>%
+  drop_na("adi.mean3") %>% select(-"fips.y", -"FIPS.y") %>%
+  drop_na("coi_num") %>%
+  drop_na("ccvi") %>%
+  drop_na("sviscore") 
+
+orleans_ct$fips_n = as.character(orleans_ct$GEOID)
+all_nola$fips_n = as.character(all_nola$fips)
+data_merged_n <- inner_join(orleans_ct, all_nola, by = "fips_n", all.y=TRUE) %>% drop_na("adi.mean3")
+
+## Identify neighboring polygons
+nb_n = poly2nb(data_merged_n, queen=TRUE)
+
+## Assign weights to neighbors
+lw_n = nb2listw(nb_n, style="W", zero.policy=TRUE)
+
+# NOLA ADI
+moran(data_merged_n$adi.mean3, lw_n, length(nb_n), Szero(lw_n), zero.policy=TRUE, NAOK=TRUE)
+moran.test(data_merged_n$adi.mean3, lw_n, na.action=na.omit, zero.policy=TRUE)
+# NOLA COI
+moran(data_merged_n$coi_num, lw_n, length(nb_n), Szero(lw_n), zero.policy=TRUE, NAOK=TRUE)
+moran.test(data_merged_n$coi_num, lw_n, na.action=na.omit, zero.policy=TRUE)
+# NOLA CCVI
+moran(data_merged_n$ccvi, lw_n, length(nb_n), Szero(lw_n), zero.policy=TRUE, NAOK=TRUE)
+moran.test(data_merged_n$ccvi, lw_n, na.action=na.omit, zero.policy=TRUE)
+# NOLA SVI
+moran(data_merged_n$sviscore, lw_n, length(nb_n), Szero(lw_n), zero.policy=TRUE, NAOK=TRUE)
+moran.test(data_merged_n$sviscore, lw_n, na.action=na.omit, zero.policy=TRUE)
+
+```
+
+# Plot Durham Moran's I 
+
+```{r plot durham morans, message = FALSE, warning = FALSE}
+options(prompt="R> ", digits=4, scipen=999)
+
+# Transform merged Durham ADI and tract file into a shape file
+data_merged_shape = st_as_sf(data_merged_durham)
+
+# Map Durham ADI
+tm_shape(data_merged_shape) + 
+  tm_fill("adi.mean",
+          palette = "Reds", 
+          style = "quantile", 
+          title = "Mean ADI") +
+  tm_borders(alpha=.4)  
+
+# Find queen neighbors
+nb_durham = poly2nb(data_merged_durham)
+nb_durham_sf = poly2nb(data_merged_shape)
+
+# Plot queen neighbors
+plot(st_geometry(data_merged_durham), border='lightgrey')
+plot(nb_durham, st_coordinates(st_centroid(data_merged_durham)), add=TRUE, col='red')
+
+# Plot Moran map
+moran=moran.plot(data_merged_durham$adi.mean, listw = nb2listw(nb_durham, style = "W"))
+
+# Local Moran
+local = localmoran(x=data_merged_durham $adi.mean, listw = nb2listw(nb_durham, style = "W"))
+local_d_svi = localmoran(x=data_merged_durham$sviscore, listw = nb2listw(nb_durham, style = "W"))
+local_d_ccvi = localmoran(x=data_merged_durham$ccvi, listw = nb2listw(nb_durham, style = "W"))
+local_d_coi = localmoran(x=data_merged_durham$coi_num, listw = nb2listw(nb_durham, style = "W"))
+
+
+# Plot clustering
+  # ADI
+moran.map_durham = cbind(data_merged_durham, local)
+tm_shape(moran.map_durham) +
+  tm_fill(col = "Ii",
+          style = "quantile",
+          title = "Local Moran - ADI") +
+          tm_layout(legend.outside = TRUE) 
+
+  # SVI
+moran.map_durham = cbind(data_merged_durham, local_d_svi)
+tm_shape(moran.map_durham) +
+  tm_fill(col = "Ii",
+          style = "quantile",
+          title = "Local Moran - SVI") +
+          tm_layout(legend.outside = TRUE) 
+
+  # CCVI
+moran.map_durham = cbind(data_merged_durham, local_d_ccvi)
+tm_shape(moran.map_durham) +
+  tm_fill(col = "Ii",
+          style = "quantile",
+          title = "Local Moran - CCVI") +
+          tm_layout(legend.outside = TRUE) 
+
+  # COI
+moran.map_durham = cbind(data_merged_durham, local_d_coi)
+tm_shape(moran.map_durham) +
+  tm_fill(col = "Ii",
+          style = "quantile",
+          title = "Local Moran - COI") +
+          tm_layout(legend.outside = TRUE) 
+
+
+```
+
+# Plot Chicago Moran's I
+
+```{r plot chicago morans, message = FALSE, warning = FALSE }
+# Transform merged CHICAGO ADI and tract file into a shape file
+data_merged_chi_sf = st_as_sf(data_merged_chi)
+
+
+# Map Chicago ADI
+tm_shape(data_merged_chi_sf) + 
+  tm_fill("adi.mean2",
+          palette = "Reds", 
+          style = "quantile", 
+          title = "Mean ADI") +
+  tm_borders(alpha=.4)  
+
+# Find queen neighbors
+nb_cook = poly2nb(data_merged_chi)
+nb_cook_sf = poly2nb(data_merged_chi_sf)
+
+# Plot queen neighbors
+plot(st_geometry(data_merged_chi), border='lightgrey')
+plot(nb_cook, st_coordinates(st_centroid(data_merged_chi)), add=TRUE, col='red')
+
+# Plot Moran map
+moran_c=moran.plot(data_merged_chi$adi.mean2, listw = nb2listw(nb_cook, style = "W", zero.policy=TRUE))
+
+# Local Moran
+local_c_adi  =  localmoran(x=data_merged_chi$adi.mean2, listw = nb2listw(nb_cook, style = "W", zero.policy=TRUE))
+local_c_svi  =  localmoran(x=data_merged_chi$sviscore, listw = nb2listw(nb_cook, style = "W"))
+local_c_ccvi =  localmoran(x=data_merged_chi$ccvi, listw = nb2listw(nb_cook, style = "W"))
+local_c_coi  =  localmoran(x=data_merged_chi$coi_num, listw = nb2listw(nb_cook, style = "W"))
+
+
+# Plot clustering
+# ADI
+moran.map_chicago = cbind(data_merged_chi, local_c_adi)
+tm_shape(moran.map_chicago) +
+  tm_fill(col = "Ii",
+          style = "quantile",
+          title = "Local Moran - ADI") +  
+          tm_layout(legend.outside = TRUE) 
+
+# SVI
+moran.map_chicago = cbind(data_merged_chi, local_c_svi)
+tm_shape(moran.map_chicago) +
+  tm_fill(col = "Ii",
+          style = "quantile",
+          title = "Local Moran - SVI") +
+          tm_layout(legend.outside = TRUE) 
+
+# CCVI
+moran.map_chicago = cbind(data_merged_chi, local_c_ccvi)
+tm_shape(moran.map_chicago) +
+  tm_fill(col = "Ii",
+          style = "quantile",
+          title = "Local Moran - CCVI") +
+          tm_layout(legend.outside = TRUE) 
+
+# COI
+moran.map_chicago = cbind(data_merged_chi, local_c_coi)
+tm_shape(moran.map_chicago) +
+  tm_fill(col = "Ii",
+          style = "quantile",
+          title = "Local Moran - COI") +
+          tm_layout(legend.outside = TRUE) 
+```
+
+# Plot New Orleans Moran's I 
+
+```{r plot nola morans, message = FALSE, warning = FALSE }
+data_merged_n_sf = st_as_sf(data_merged_n)
+tm_shape(data_merged_n_sf) + 
+  tm_fill("adi.mean3",
+          palette = "Reds", 
+          style = "quantile", 
+          title = "Mean ADI") +
+  tm_borders(alpha=.4)  
+
+# Find queen neighbors
+nb_orleans = poly2nb(data_merged_n)
+nb_orleans_sf = poly2nb(data_merged_n_sf)
+
+# Plot queen neighbors
+plot(st_geometry(data_merged_n), border='lightgrey')
+plot(nb_orleans, st_coordinates(st_centroid(data_merged_n)), add=TRUE, col='red')
+
+# Plot Moran map
+moran_n=moran.plot(data_merged_n$adi.mean3, listw = nb2listw(nb_orleans, style = "W", zero.policy=TRUE))
+
+# Local Moran
+local_n_adi  =  localmoran(x=data_merged_n$adi.mean3, listw = nb2listw(nb_orleans, style = "W", zero.policy=TRUE))
+local_n_svi  =  localmoran(x=data_merged_n$sviscore, listw = nb2listw(nb_orleans, style = "W"))
+local_n_ccvi =  localmoran(x=data_merged_n$ccvi, listw = nb2listw(nb_orleans, style = "W"))
+local_n_coi  =  localmoran(x=data_merged_n$coi_num, listw = nb2listw(nb_orleans, style = "W"))
+
+
+# Plot clustering
+# ADI
+moran.map_orleans = cbind(data_merged_n, local_n_adi)
+tm_shape(moran.map_orleans) +
+  tm_fill(col = "Ii",
+          style = "quantile",
+          title = "Local Moran - ADI") +
+          tm_layout(legend.outside = TRUE) 
+
+# SVI
+moran.map_orleans = cbind(data_merged_n, local_n_svi)
+tm_shape(moran.map_orleans) +
+  tm_fill(col = "Ii",
+          style = "quantile",
+          title = "Local Moran - SVI") +
+          tm_layout(legend.outside = TRUE) 
+
+# CCVI
+moran.map_orleans = cbind(data_merged_n, local_n_ccvi)
+tm_shape(moran.map_orleans) +
+  tm_fill(col = "Ii",
+          style = "quantile",
+          title = "Local Moran: CCVI") +
+          tm_layout(legend.outside = TRUE) 
+
+# COI
+moran.map_orleans = cbind(data_merged_n, local_n_coi)
+tm_shape(moran.map_orleans) +
+  tm_fill(col = "Ii",
+          style = "quantile",
+          title = "Local Moran: COI") +
+          tm_layout(legend.outside = TRUE)
+
+```
+
